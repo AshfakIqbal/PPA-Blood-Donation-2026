@@ -166,20 +166,21 @@
     const config = getCloudConfig();
     if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
       try {
-        await fetch(config.googleSheetUrl, {
+        const res = await fetch(config.googleSheetUrl, {
           method: "POST",
-          mode: "no-cors",
-          keepalive: true,
-          headers: { "Content-Type": "application/json" },
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify(record)
         });
-        // Mark as synced
-        record.synced = true;
-        const updated = getAllDonors();
-        const idx = updated.findIndex(d => d.passId === record.passId);
-        if (idx >= 0) {
-          updated[idx].synced = true;
-          saveAllDonors(updated);
+        // Mark as synced only if the request truly succeeded
+        if (res.ok || res.type === "opaque") {
+          record.synced = true;
+          const updated = getAllDonors();
+          const idx = updated.findIndex(d => d.passId === record.passId);
+          if (idx >= 0) {
+            updated[idx].synced = true;
+            saveAllDonors(updated);
+          }
         }
       } catch (err) {
         console.warn("Background cloud sync queued:", err);
@@ -215,14 +216,14 @@
       // Blood Group
       const bg = d.bloodGroup || "Unknown";
       let shortBg = bg;
-      if (bg.includes("A+")) shortBg = "A+";
+      if (bg.includes("AB+")) shortBg = "AB+";
+      else if (bg.includes("AB-")) shortBg = "AB-";
+      else if (bg.includes("A+")) shortBg = "A+";
       else if (bg.includes("A-")) shortBg = "A-";
       else if (bg.includes("B+")) shortBg = "B+";
       else if (bg.includes("B-")) shortBg = "B-";
       else if (bg.includes("O+")) shortBg = "O+";
       else if (bg.includes("O-")) shortBg = "O-";
-      else if (bg.includes("AB+")) shortBg = "AB+";
-      else if (bg.includes("AB-")) shortBg = "AB-";
       else shortBg = "Not Sure";
 
       bloodGroups[shortBg] = (bloodGroups[shortBg] || 0) + 1;

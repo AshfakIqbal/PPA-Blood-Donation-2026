@@ -1408,8 +1408,8 @@
           cloudStatusText.textContent = "Google Sheet Active";
 
           try {
-            const url = `${config.googleSheetUrl}?action=getDonors&pin=${encodeURIComponent(config.adminPin || "kcc2026")}`;
-            const res = await fetch(url);
+            const url = `${config.googleSheetUrl}?pin=${encodeURIComponent(config.adminPin || "kcc2026")}`;
+            const res = await fetch(url, { redirect: "follow" });
             if (res.ok) {
               const result = await res.json();
               if (result.status === "success" && Array.isArray(result.donors)) {
@@ -1503,8 +1503,8 @@
           try {
             await fetch(config.googleSheetUrl, {
               method: "POST",
-              mode: "no-cors",
-              headers: { "Content-Type": "application/json" },
+              redirect: "follow",
+              headers: { "Content-Type": "text/plain" },
               body: JSON.stringify(d)
             });
             sent++;
