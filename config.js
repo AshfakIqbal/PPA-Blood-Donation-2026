@@ -17,7 +17,7 @@
    * This is the master webhook deployed from Google Sheets.
    * Every mobile and desktop visitor automatically syncs to this URL.
    */
-  const GLOBAL_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxR_N1Na_ho0jkkHK9-WKNRZy5O8CkEBW0EUel-LjZQ-91M3bNbX3gCUJpkhjmp15Yv/exec";
+  const GLOBAL_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbx0f5X2wlqmcfE4KqJzF5LaDks3KTm0L5t-2IAMkQW1zH8X5WA8aBI88K3Aapp02uQn/exec";
 
   // Default cloud configuration
   const defaultCloudConfig = {
