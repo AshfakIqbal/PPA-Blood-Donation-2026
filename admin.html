@@ -1419,6 +1419,13 @@
         // Load local records first
         allDonors = window.DonorRegistry.getAllDonors();
 
+        // If local records are empty on initial load, show a loading placeholder instead of empty state
+        if (allDonors.length === 0) {
+          donorTableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted); font-weight: 600;">🔄 Syncing latest registrations from cloud...</td></tr>';
+          mobileCardsContainer.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted); font-weight: 600;">🔄 Syncing latest registrations from cloud...</div>';
+          emptyState.style.display = "none";
+        }
+
         if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
           cloudStatusDot.className = "status-dot active";
           cloudStatusText.textContent = "Google Sheet Active";
