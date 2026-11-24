@@ -1,0 +1,14 @@
+# PPA KCC Blood Donation Camp 2026
+# Prevent search engines from indexing admin panel files
+
+User-agent: *
+Disallow: /d7x9k2m4.html
+Disallow: /admin.html
+Disallow: /mydash.html
+Disallow: /config.js
+Disallow: /google-apps-script.js
+
+# Block all crawlers from admin-like paths
+User-agent: *
+Disallow: /*admin*
+Disallow: /*dash*
