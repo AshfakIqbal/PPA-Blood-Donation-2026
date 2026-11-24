@@ -18,7 +18,7 @@
    * Once pasted here and committed to GitHub, every single mobile and desktop visitor's
    * registration automatically syncs to your Google Sheet in the cloud!
    */
-  const GLOBAL_GOOGLE_SHEET_URL = "";
+  const GLOBAL_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxR_N1Na_ho0jkkHK9-WKNRZy5O8CkEBW0EUel-LjZQ-91M3bNbX3gCUJpkhjmp15Yv/exec";
 
   // Default cloud configuration
   const defaultCloudConfig = {
