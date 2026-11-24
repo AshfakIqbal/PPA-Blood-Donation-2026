@@ -1043,6 +1043,7 @@
 
         <div class="modal-footer">
           <button type="button" class="btn-admin" id="btnCloseCloudModal">Cancel</button>
+          <button type="button" class="btn-admin" id="btnClearAllCloud" style="color: #dc2626; background: #fee2e2;" title="Wipe all test records to start fresh">🗑️ Wipe Test Data</button>
           <button type="button" class="btn-admin" id="btnPushLocalToCloud" style="background: #f1f5f9;">Push Local to Cloud</button>
           <button type="submit" class="btn-admin btn-admin-primary">Save Settings</button>
         </div>
@@ -1384,11 +1385,26 @@
           .replace(/'/g, "&#039;");
       }
 
-      window.confirmDeleteDonor = (passId) => {
+      window.confirmDeleteDonor = async (passId) => {
         if (confirm(`Are you sure you want to delete donor ${passId}?`)) {
           allDonors = window.DonorRegistry.deleteDonor(passId);
           renderKPIs();
           renderDonors();
+
+          // Also delete from Google Sheet cloud
+          const config = window.DonorRegistry.getCloudConfig();
+          if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
+            try {
+              await fetch(config.googleSheetUrl, {
+                method: "POST",
+                redirect: "follow",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "deleteDonor", passId: passId, pin: config.adminPin || "kcc2026" })
+              });
+            } catch (e) {
+              console.warn("Could not delete from cloud:", e);
+            }
+          }
         }
       };
 
@@ -1468,8 +1484,33 @@
       btnSyncRefresh.addEventListener("click", () => syncData(true));
       btnExportCSV.addEventListener("click", () => window.DonorRegistry.exportToCSV(getFilteredDonors()));
 
-      // Cloud Modal
-      btnOpenCloudModal.addEventListener("click", () => cloudModal.classList.add("is-active"));
+      const btnClearAllCloud = document.getElementById("btnClearAllCloud");
+      if (btnClearAllCloud) {
+        btnClearAllCloud.addEventListener("click", async () => {
+          if (!confirm("⚠️ CAUTION: Are you sure you want to WIPE all test records from the Google Sheet and start completely fresh from Pass ID #001?")) {
+            return;
+          }
+          const config = window.DonorRegistry.getCloudConfig();
+          if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
+            try {
+              await fetch(config.googleSheetUrl, {
+                method: "POST",
+                redirect: "follow",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ action: "clearAll", pin: config.adminPin || "kcc2026" })
+              });
+            } catch (e) {
+              console.error("Cloud wipe error:", e);
+            }
+          }
+          window.DonorRegistry.clearAllDonors();
+          allDonors = [];
+          renderKPIs();
+          renderDonors();
+          cloudModal.classList.remove("is-active");
+          alert("All test data wiped successfully. The registry is now clean and starts from #PPA-KCC-BDC-001!");
+        });
+      }
       btnCloseCloudModal.addEventListener("click", () => cloudModal.classList.remove("is-active"));
       cloudConfigForm.addEventListener("submit", (e) => {
         e.preventDefault();

@@ -420,42 +420,95 @@
       if (!validate()) return;
 
       const submitBtn = btnSubmitWhatsApp || form.querySelector('button[type="submit"]');
+
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.style.opacity = "0.75";
+        submitBtn.innerHTML = `<span>⏳ ${currentLang === "ta" ? "பதிவு செய்யப்படுகிறது..." : (currentLang === "si" ? "ලියාපදිංචි වෙමින්..." : "Registering...")}</span>`;
       }
 
-      const data = getFormData();
-      const passId = (window.DonorRegistry && typeof window.DonorRegistry.getNextPassId === "function")
-        ? window.DonorRegistry.getNextPassId()
-        : "#PPA-KCC-BDC-001";
-
-      // Show feedback notice
+      // Show immediate progress feedback notice
       if (submitNotice) {
         submitNotice.style.display = "block";
+        submitNotice.className = "submit-notice-box";
+        submitNotice.innerHTML = `
+          <div class="submit-notice-inner">
+            <span class="submit-notice-icon">⏳</span>
+            <span class="submit-notice-text">${currentLang === "ta" ? "உங்கள் விபரங்கள் இணைக்கப்படுகின்றன..." : (currentLang === "si" ? "ඔබගේ විස්තර සුරැකෙමින් පවතී..." : "Connecting to Official Registry...")}</span>
+          </div>
+        `;
         submitNotice.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
 
-      // Automatic In-Built Data Collection (persists locally & syncs to Google Sheets cloud)
+      const data = getFormData();
+
+      // Save donor record (Google Apps Script assigns the GUARANTEED sequential unique Pass ID)
+      let record = null;
       if (window.DonorRegistry && typeof window.DonorRegistry.saveDonor === "function") {
         try {
-          await window.DonorRegistry.saveDonor(data, passId, currentLang);
+          record = await window.DonorRegistry.saveDonor(data, null, currentLang);
         } catch (err) {
           console.warn("Registry save notice:", err);
         }
       }
 
+      // Final Pass ID: Use server-assigned ID, or reliable fallback
+      const passId = (record && record.passId)
+        ? record.passId
+        : (window.DonorRegistry && typeof window.DonorRegistry.getNextPassId === "function" ? window.DonorRegistry.getNextPassId() : "#PPA-KCC-BDC-001");
+
       const msg = buildWhatsAppMessage(data, passId);
       const waUrl = `https://wa.me/${COORDINATOR_PHONE}?text=${encodeURIComponent(msg)}`;
 
-      // Launch WhatsApp (support both mobile app scheme and desktop web)
+      // Render Grand Official Pass Confirmation Card in submitNotice
+      const headingText = currentLang === "ta"
+        ? "பதிவு வெற்றிகரமானது!"
+        : (currentLang === "si" ? "ලියාපදිංචිය සාර්ථකයි!" : "Registration Successful!");
+      const passLabel = currentLang === "ta" ? "அனுமதி அட்டை எண்" : (currentLang === "si" ? "නිල පාස් අංකය" : "Official Pass ID");
+      const subText = currentLang === "ta"
+        ? "ஒருங்கிணைப்பாளருக்கு WhatsApp மூலம் உறுதிப்படுத்த கீழே உள்ள பொத்தானை அழுத்தவும்:"
+        : (currentLang === "si" ? "සම්බන්ධීකාරක වෙත WhatsApp මගින් තහවුරු කිරීමට පහත බොත්තම ඔබන්න:" : "Click below to confirm your registration with the event coordinator:");
+      const btnText = currentLang === "ta"
+        ? "💬 WhatsApp மூலம் உறுதிசெய்க"
+        : (currentLang === "si" ? "💬 WhatsApp මගින් තහවුරු කරන්න" : "💬 Open WhatsApp to Confirm Pass");
+
+      if (submitNotice) {
+        submitNotice.style.display = "block";
+        submitNotice.style.background = "#ecfdf5";
+        submitNotice.style.border = "2px solid #10b981";
+        submitNotice.style.padding = "20px 18px";
+        submitNotice.style.textAlign = "center";
+        submitNotice.innerHTML = `
+          <div style="font-size: 2rem; margin-bottom: 6px;">🎉</div>
+          <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: #065f46; margin-bottom: 8px;">
+            ${headingText}
+          </h3>
+          <div style="display: inline-block; background: #8f0e1f; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-family: monospace; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.05em; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(143,14,31,0.25);">
+            ${passLabel}: ${passId}
+          </div>
+          <p style="font-size: 0.88rem; color: #065f46; margin-bottom: 16px; font-weight: 600; line-height: 1.4;">
+            ${subText}
+          </p>
+          <a href="${waUrl}" id="btnWaDirect" class="btn btn-red btn-touch-lg" style="display: block; width: 100%; text-decoration: none; font-size: 1rem; padding: 14px 20px; background: #25d366; border-color: #25d366; box-shadow: 0 6px 18px rgba(37,211,102,0.35);">
+            <span>${btnText}</span>
+          </a>
+          <p style="font-size: 0.74rem; color: #047857; margin-top: 10px;">
+            📍 College Main Hall, Kalugamuwa Central College • 06 Dec 2026
+          </p>
+        `;
+        submitNotice.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = "1";
+        submitBtn.innerHTML = `<span>✓ ${currentLang === "ta" ? "பதிவு செய்யப்பட்டது" : (currentLang === "si" ? "ලියාපදිංචි කරන ලදී" : "Registered")} (${passId})</span>`;
+      }
+
+      // Auto-trigger WhatsApp launch on mobile
       setTimeout(() => {
-        window.open(waUrl, "_blank") || (window.location.href = waUrl);
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.style.opacity = "1";
-        }
-      }, 350);
+        window.location.href = waUrl;
+      }, 400);
     });
   }
 

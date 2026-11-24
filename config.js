@@ -14,9 +14,8 @@
 
   /**
    * GLOBAL GOOGLE APPS SCRIPT WEB APP URL
-   * Paste your deployed Web App URL below (e.g. "https://script.google.com/macros/s/.../exec")
-   * Once pasted here and committed to GitHub, every single mobile and desktop visitor's
-   * registration automatically syncs to your Google Sheet in the cloud!
+   * This is the master webhook deployed from Google Sheets.
+   * Every mobile and desktop visitor automatically syncs to this URL.
    */
   const GLOBAL_GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxR_N1Na_ho0jkkHK9-WKNRZy5O8CkEBW0EUel-LjZQ-91M3bNbX3gCUJpkhjmp15Yv/exec";
 
@@ -29,19 +28,20 @@
 
   function getCloudConfig() {
     let cfg = { ...defaultCloudConfig };
-    if (GLOBAL_GOOGLE_SHEET_URL && GLOBAL_GOOGLE_SHEET_URL.startsWith("http")) {
-      cfg.googleSheetUrl = GLOBAL_GOOGLE_SHEET_URL;
-    }
     try {
       const saved = localStorage.getItem(CONFIG_KEY);
       if (saved) {
-        cfg = { ...cfg, ...JSON.parse(saved) };
-        if (GLOBAL_GOOGLE_SHEET_URL && GLOBAL_GOOGLE_SHEET_URL.startsWith("http") && !cfg.googleSheetUrl) {
-          cfg.googleSheetUrl = GLOBAL_GOOGLE_SHEET_URL;
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          cfg = { ...cfg, ...parsed };
         }
       }
     } catch (e) {
       // ignore
+    }
+    // Safety check: Never leave googleSheetUrl blank if global is configured
+    if ((!cfg.googleSheetUrl || !cfg.googleSheetUrl.startsWith("http")) && GLOBAL_GOOGLE_SHEET_URL && GLOBAL_GOOGLE_SHEET_URL.startsWith("http")) {
+      cfg.googleSheetUrl = GLOBAL_GOOGLE_SHEET_URL;
     }
     return cfg;
   }
@@ -82,7 +82,7 @@
   }
 
   /**
-   * Generate next sequential Pass ID starting from #PPA-KCC-BDC-001
+   * Generate next sequential Pass ID fallback starting from #PPA-KCC-BDC-001
    */
   function getNextPassId() {
     let maxNum = 0;
@@ -93,15 +93,14 @@
           const m = d.passId.match(/BDC-(\d+)/i);
           if (m) {
             const num = parseInt(m[1], 10);
-            // Ignore legacy 4-digit random numbers so sequence starts cleanly from 001
-            if (!isNaN(num) && num < 1000 && num > maxNum) {
+            if (!isNaN(num) && num < 10000 && num > maxNum) {
               maxNum = num;
             }
           }
         }
       }
       const savedSeq = parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
-      if (!isNaN(savedSeq) && savedSeq < 1000 && savedSeq > maxNum) {
+      if (!isNaN(savedSeq) && savedSeq < 10000 && savedSeq > maxNum) {
         maxNum = savedSeq;
       }
     } catch (e) {
@@ -130,12 +129,15 @@
   }
 
   /**
-   * Save a donor record locally and optionally push to Google Sheets Web App
+   * Save a donor record locally and push to Google Sheets Web App.
+   * Google Apps Script server assigns the GUARANTEED sequential Pass ID.
    */
-  async function saveDonor(formData, passId, lang = "en") {
+  async function saveDonor(formData, clientPassId, lang = "en") {
     const lkTime = new Date().toLocaleString("en-US", { timeZone: "Asia/Colombo" });
-    const record = {
-      passId: passId || getNextPassId(),
+    
+    // Initial record draft
+    let record = {
+      passId: clientPassId || getNextPassId(),
       name: formData.name || "N/A",
       gender: formData.gender || "Male",
       dob: formData.dob || "",
@@ -151,9 +153,42 @@
       synced: false
     };
 
+    const config = getCloudConfig();
+
+    // Push to Google Sheets Cloud Webhook
+    if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s max wait
+
+        const res = await fetch(config.googleSheetUrl, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(record),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          try {
+            const json = await res.json();
+            if (json && json.status === "success" && json.passId) {
+              // Adopt the server-assigned guaranteed unique Pass ID
+              record.passId = json.passId;
+              record.synced = true;
+            }
+          } catch (jsonErr) {
+            record.synced = true;
+          }
+        }
+      } catch (err) {
+        console.warn("Cloud sync queued (offline/slow network):", err);
+      }
+    }
+
     // Save into local master registry (prepend so newest is first)
     const donors = getAllDonors();
-    // Check if passId already exists
     const existingIndex = donors.findIndex(d => d.passId === record.passId);
     if (existingIndex >= 0) {
       donors[existingIndex] = { ...donors[existingIndex], ...record };
@@ -161,31 +196,6 @@
       donors.unshift(record);
     }
     saveAllDonors(donors);
-
-    // Asynchronously sync to Google Sheets if configured
-    const config = getCloudConfig();
-    if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
-      try {
-        const res = await fetch(config.googleSheetUrl, {
-          method: "POST",
-          redirect: "follow",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify(record)
-        });
-        // Mark as synced only if the request truly succeeded
-        if (res.ok || res.type === "opaque") {
-          record.synced = true;
-          const updated = getAllDonors();
-          const idx = updated.findIndex(d => d.passId === record.passId);
-          if (idx >= 0) {
-            updated[idx].synced = true;
-            saveAllDonors(updated);
-          }
-        }
-      } catch (err) {
-        console.warn("Background cloud sync queued:", err);
-      }
-    }
 
     return record;
   }
@@ -293,6 +303,7 @@
   // Expose globally
   window.DonorRegistry = {
     DEFAULT_PIN,
+    GLOBAL_GOOGLE_SHEET_URL,
     getCloudConfig,
     setCloudConfig,
     getAllDonors,
