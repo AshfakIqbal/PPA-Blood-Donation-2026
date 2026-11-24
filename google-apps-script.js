@@ -18,19 +18,75 @@
  *    - Who has access: "Anyone" (CRITICAL: Allows GitHub Pages to submit donors)
  * 8. Click "Deploy", then "Authorize access" (choose your Google account, click "Advanced" > "Go to KCC Blood Donation (unsafe)")
  * 9. Copy the generated "Web App URL" (starts with https://script.google.com/macros/s/...)
- * 10. Update GLOBAL_GOOGLE_SHEET_URL in config.js (and/or paste in admin.html Settings)
+ * 10. In Apps Script: Project Settings (gear icon) > Script Properties > Add property:
+ *     - Property: ADMIN_PIN
+ *     - Value: Your private secret passcode (NEVER commit the real value to GitHub)
+ * 11. Update GLOBAL_GOOGLE_SHEET_URL in config.js
  * 
  * Done! Every donor registered on your website will automatically append to your Google Sheet
  * with guaranteed non-duplicating sequential Pass IDs (#PPA-KCC-BDC-001, 002, 003...)!
  * ============================================================================
  */
 
-const ADMIN_PIN = "kcc2026";
-const VALID_PINS = ["kcc2026", "Kcc@PPA2026", "kcc@ppa2026"];
+// Fallback only if Script Property "ADMIN_PIN" is not set. Replace locally in Apps Script, never commit real secrets.
+const FALLBACK_PIN = "SET_PRIVATE_PIN_IN_SCRIPT_PROPERTIES";
+
+function getConfiguredPin() {
+  try {
+    const prop = PropertiesService.getScriptProperties().getProperty("ADMIN_PIN");
+    if (prop && prop.trim()) return prop.trim();
+  } catch (e) {
+    // ignore
+  }
+  return FALLBACK_PIN;
+}
+
+function isRateLimited() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const lockUntil = parseInt(cache.get("pin_lock_until") || "0", 10);
+    return lockUntil > Date.now();
+  } catch (e) {
+    return false;
+  }
+}
+
+function recordFailedPinAttempt() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const attempts = parseInt(cache.get("pin_fail_count") || "0", 10) + 1;
+    cache.put("pin_fail_count", String(attempts), 900); // 15 min window
+    if (attempts >= 5) {
+      // Lock admin read/delete endpoints for 15 minutes after 5 failed attempts
+      cache.put("pin_lock_until", String(Date.now() + 15 * 60 * 1000), 900);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function clearFailedPinAttempts() {
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.removeAll(["pin_fail_count", "pin_lock_until"]);
+  } catch (e) {
+    // ignore
+  }
+}
 
 function isValidPin(pin) {
-  const p = String(pin || "").trim().toLowerCase();
-  return VALID_PINS.some(v => v.toLowerCase() === p);
+  if (isRateLimited()) return false;
+  const expected = getConfiguredPin();
+  if (!expected || expected === "SET_PRIVATE_PIN_IN_SCRIPT_PROPERTIES") {
+    return false;
+  }
+  const provided = String(pin || "").trim();
+  if (provided === expected) {
+    clearFailedPinAttempts();
+    return true;
+  }
+  recordFailedPinAttempt();
+  return false;
 }
 const SHEET_NAME = "Donors";
 
@@ -178,7 +234,7 @@ function doPost(e) {
 }
 
 /**
- * Handle GET request from admin.html to fetch registered donors list or perform actions
+ * Handle GET request from Coordinator Portal to fetch registered donors list or perform actions
  */
 function doGet(e) {
   try {

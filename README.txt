@@ -49,10 +49,9 @@ LANGUAGE EDITIONS & STRUCTURE:
    - Digital Donor Passes are also generated in the respective language.
    - Direct Google Maps link (https://maps.app.goo.gl/GUvWcV5GCEfPuANm7) is included across all pages, passes, and calendar invitations.
 
-5. In-Built Data Collection & Coordinator Admin Portal (admin.html):
-   - Every registration is automatically collected and recorded, whether the donor registers via WhatsApp or clicks "Get Donor Pass" directly.
-   - Access the Admin Portal via `admin.html` or the discreet "🔒 Coordinator Portal" link in the footer.
-   - Protected by Passcode (Default: `kcc2026`).
+5. In-Built Data Collection & Protected Coordinator Portal:
+   - Every registration is automatically collected and recorded via Google Sheets Web App sync.
+   - Protected by AES-256-GCM encryption and coordinator passcode.
    - Admin Features:
      * Live KPI counters: Total Donors, Male/Female split, Blood Group breakdown (A+, B+, O+, AB+), and Time Slots.
      * Instant search & filtering by donor name, phone, blood group, or slot.
@@ -71,7 +70,6 @@ FILES INCLUDED:
 - index.html             : English digital invitation + Language selection opener
 - ta.html                : Tamil edition (தமிழ்)
 - si.html                : Sinhala edition (සිංහල)
-- admin.html             : Protected Coordinator Admin Portal & Donor Registry
 - config.js              : Data storage & registry configuration module
 - google-apps-script.js  : Ready-to-deploy Google Sheets backend webhook
 - style.css              : Mobile-first responsive engine + dark mood footer

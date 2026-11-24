@@ -10,8 +10,6 @@
   const STORAGE_KEY = "kcc_blood_donors_master";
   const CONFIG_KEY = "kcc_donor_cloud_config";
   const COUNTER_KEY = "kcc_donor_pass_seq";
-  const DEFAULT_PIN = "Kcc@PPA2026";
-  const ALT_PIN = "kcc2026";
 
   /**
    * GLOBAL GOOGLE APPS SCRIPT WEB APP URL
@@ -23,7 +21,6 @@
   // Default cloud configuration
   const defaultCloudConfig = {
     googleSheetUrl: GLOBAL_GOOGLE_SHEET_URL,
-    adminPin: DEFAULT_PIN,
     targetDonors: 100
   };
 
@@ -34,7 +31,6 @@
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === "object") {
-          if (parsed.adminPin) cfg.adminPin = parsed.adminPin;
           if (parsed.targetDonors) cfg.targetDonors = parsed.targetDonors;
         }
       }
@@ -304,7 +300,6 @@
 
   // Expose globally
   window.DonorRegistry = {
-    DEFAULT_PIN,
     GLOBAL_GOOGLE_SHEET_URL,
     getCloudConfig,
     setCloudConfig,
