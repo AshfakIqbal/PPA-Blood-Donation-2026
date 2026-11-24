@@ -112,7 +112,7 @@
     if (config.googleSheetUrl && config.googleSheetUrl.startsWith("http")) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         const res = await fetch(config.googleSheetUrl, {
           method: "POST",
@@ -129,14 +129,21 @@
             if (json && json.status === "success" && json.passId) {
               record.passId = json.passId;
               record.synced = true;
+            } else if (json && json.status === "error") {
+              record.error = json.message || "Registration rejected by server.";
             }
           } catch (jsonErr) {
-            record.synced = true;
+            record.error = "Unexpected server response.";
           }
+        } else {
+          record.error = `Server returned status ${res.status}`;
         }
       } catch (err) {
-        console.warn("Cloud sync queued (offline/slow network):", err);
+        record.error = "Network connection timed out or failed.";
+        console.warn("Cloud sync error:", err);
       }
+    } else {
+      record.error = "Google Sheet URL not configured.";
     }
 
     const donors = getAllDonors();

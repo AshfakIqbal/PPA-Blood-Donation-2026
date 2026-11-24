@@ -41,13 +41,9 @@ LANGUAGE EDITIONS & STRUCTURE:
      * English terms used naturally: Blood Donation Camp, Donor, Register, Date, Time, Venue, Full Name, Contact Number, WhatsApp Number, NIC, Driving License, Tattoo, Antibiotics, 4 Months Gap, Empty stomach, Donor Pass.
      * Avoids overly formal or archaic dictionary vocabulary, making the invitations and registration steps effortless for youths, past pupils, and the general public.
 
-4. Native Mobile Form & WhatsApp Integration:
-   - Registration messages sent to Mr. M.S.M. Ramjan (+94 77 513 8838) are automatically formatted in the user's chosen language:
-     * English WhatsApp format on index.html
-     * Tamil WhatsApp format on ta.html
-     * Sinhala WhatsApp format on si.html
-   - Digital Donor Passes are also generated in the respective language.
-   - Direct Google Maps link (https://maps.app.goo.gl/GUvWcV5GCEfPuANm7) is included across all pages, passes, and calendar invitations.
+4. Native Mobile Form & Direct Google Sheets Registration:
+   - Donor applications submit directly into the private Google Sheet (`KCC Blood Donation 2026`) and immediately issue an on-screen Official Donor Pass (`#PPA-KCC-BDC-001`, `002`, ...) without redirecting away to WhatsApp.
+   - Direct Google Maps link (https://maps.app.goo.gl/GUvWcV5GCEfPuANm7) is included across all pages and calendar invitations.
 
 5. Private Google Sheets Data Collection (Write-Only Security):
    - Every registration from the public form is automatically appended to the private Google Sheet (`KCC Blood Donation 2026`) via a write-only Google Apps Script collector (`google-apps-script.js`).

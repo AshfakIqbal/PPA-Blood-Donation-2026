@@ -3,7 +3,6 @@
 
   // Event Date: Sunday, 06 Dec 2026 at 09:00 AM Sri Lanka Time (UTC+05:30)
   const EVENT_TIMESTAMP = new Date("2026-12-06T09:00:00+05:30").getTime();
-  const COORDINATOR_PHONE = "94775138838"; // Mr. M.S.M. Ramjan
 
   const currentLang = document.documentElement.lang || "en";
 
@@ -224,7 +223,7 @@
   const addressError = document.getElementById("addressError");
 
   const submitNotice = document.getElementById("submitNotice");
-  const btnSubmitWhatsApp = document.getElementById("btnSubmitWhatsApp");
+  const btnSubmitForm = document.getElementById("btnSubmitForm") || document.getElementById("btnSubmitWhatsApp");
 
   function getGender() {
     const r = document.querySelector('input[name="gender"]:checked');
@@ -348,93 +347,56 @@
     };
   }
 
-  // Build WhatsApp pre-filled registration message in respective language
-  function buildWhatsAppMessage(data, passId) {
-    if (currentLang === "ta") {
-      return `*BLOOD DONATION CAMP 2026 — PPA KCC REGISTRATION*
-----------------------------------------
-*Pass ID:* ${passId}
-*Pledge:* Yes, I'm eligible and I'll participate! (ஆம், நான் பங்கேற்பேன்)
-
-*Donor Details (கொடையாளர் விபரம்):*
-• *Full Name (பெயர்):* ${data.name}
-• *Gender (பாலினம்):* ${data.gender}
-• *DOB (பிறந்த திகதி):* ${data.dob} (Age: ${data.age})
-• *Contact Number:* ${data.contact}
-• *WhatsApp Number:* ${data.whatsapp}
-• *Address / Town (முகவரி):* ${data.address}
-• *Blood Group:* ${data.bloodGroup}
-• *Time Slot (நேரம்):* ${data.slot}
-
-----------------------------------------
-*Venue:* College Main Hall, Kalugamuwa Central College
-*Location Map:* https://maps.app.goo.gl/GUvWcV5GCEfPuANm7
-*Date:* Sunday, 06 Dec 2026 (09:00 AM)`;
-    } else if (currentLang === "si") {
-      return `*BLOOD DONATION CAMP 2026 — PPA KCC REGISTRATION*
-----------------------------------------
-*Pass ID:* ${passId}
-*Pledge:* Yes, I'm eligible and I'll participate! (ඔව්, මම සහභාගී වෙමි)
-
-*Donor Details (දායකයාගේ විස්තර):*
-• *Full Name (නම):* ${data.name}
-• *Gender (ස්ත්‍රී/පුරුෂ):* ${data.gender}
-• *DOB (උපන් දිනය):* ${data.dob} (Age: ${data.age})
-• *Contact Number:* ${data.contact}
-• *WhatsApp Number:* ${data.whatsapp}
-• *Address / Town (ලිපිනය):* ${data.address}
-• *Blood Group:* ${data.bloodGroup}
-• *Time Slot (වේලාව):* ${data.slot}
-
-----------------------------------------
-*Venue:* College Main Hall, Kalugamuwa Central College
-*Location Map:* https://maps.app.goo.gl/GUvWcV5GCEfPuANm7
-*Date:* Sunday, 06 Dec 2026 (09:00 AM)`;
-    } else {
-      return `*BLOOD DONATION REGISTRATION — PPA KCC 2026*
-----------------------------------------
-*Pass ID:* ${passId}
-*Pledge:* Yes, I'm eligible and I'll participate!
-
-*Donor Details:*
-• *Name:* ${data.name}
-• *Gender:* ${data.gender}
-• *DOB:* ${data.dob} (Age: ${data.age})
-• *Contact:* ${data.contact}
-• *WhatsApp:* ${data.whatsapp}
-• *Address:* ${data.address}
-• *Blood Group:* ${data.bloodGroup}
-• *Preferred Slot:* ${data.slot}
-
-----------------------------------------
-*Venue:* College Main Hall, Kalugamuwa Central College
-*Location Map:* https://maps.app.goo.gl/GUvWcV5GCEfPuANm7
-*Date:* Sunday, 06 Dec 2026 (09:00 AM)`;
-    }
+  function escapeHtml(str) {
+    return String(str == null ? "" : str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  // Handle Sole Registration Form Submission via WhatsApp
+  function resetSubmitButton(submitBtn) {
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = "1";
+    const defaultLabel = currentLang === "ta"
+      ? "பதிவு செய்க (Submit)"
+      : (currentLang === "si" ? "ලියාපදිංචි වන්න (Submit)" : "Submit &amp; Get Donor Pass");
+    submitBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+      </svg>
+      <span>${defaultLabel}</span>
+    `;
+  }
+
+  // Handle Direct Registration Form Submission to Google Sheet
   if (form) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!validate()) return;
 
-      const submitBtn = btnSubmitWhatsApp || form.querySelector('button[type="submit"]');
+      const submitBtn = btnSubmitForm || form.querySelector('button[type="submit"]');
 
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.style.opacity = "0.75";
-        submitBtn.innerHTML = `<span>⏳ ${currentLang === "ta" ? "பதிவு செய்யப்படுகிறது..." : (currentLang === "si" ? "ලියාපදිංචි වෙමින්..." : "Registering...")}</span>`;
+        submitBtn.innerHTML = `<span>⏳ ${currentLang === "ta" ? "பதிவு செய்யப்படுகிறது..." : (currentLang === "si" ? "ලියාපදිංචි වෙමින්..." : "Submitting...")}</span>`;
       }
 
       // Show immediate progress feedback notice
       if (submitNotice) {
         submitNotice.style.display = "block";
         submitNotice.className = "submit-notice-box";
+        submitNotice.style.background = "";
+        submitNotice.style.border = "";
+        submitNotice.style.padding = "";
+        submitNotice.style.textAlign = "";
         submitNotice.innerHTML = `
           <div class="submit-notice-inner">
             <span class="submit-notice-icon">⏳</span>
-            <span class="submit-notice-text">${currentLang === "ta" ? "உங்கள் விபரங்கள் இணைக்கப்படுகின்றன..." : (currentLang === "si" ? "ඔබගේ විස්තර සුරැකෙමින් පවතී..." : "Connecting to Official Registry...")}</span>
+            <span class="submit-notice-text">${currentLang === "ta" ? "உங்கள் விபரங்கள் அதிகாரப்பூர்வ பட்டியலில் சேமிக்கப்படுகின்றன..." : (currentLang === "si" ? "ඔබගේ විස්තර නිල ලේඛනයට සුරැකෙමින් පවතී..." : "Saving directly to Official Donor Sheet...")}</span>
           </div>
         `;
         submitNotice.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -442,73 +404,101 @@
 
       const data = getFormData();
 
-      // Save donor record (Google Apps Script assigns the GUARANTEED sequential unique Pass ID)
+      // Save donor record directly to Google Sheets (server assigns sequential Pass ID)
       let record = null;
       if (window.DonorRegistry && typeof window.DonorRegistry.saveDonor === "function") {
         try {
           record = await window.DonorRegistry.saveDonor(data, null, currentLang);
         } catch (err) {
-          console.warn("Registry save notice:", err);
+          console.warn("Registry save error:", err);
         }
       }
 
-      // Final Pass ID: Use server-assigned ID, or reliable fallback
-      const passId = (record && record.passId)
-        ? record.passId
-        : (window.DonorRegistry && typeof window.DonorRegistry.getNextPassId === "function" ? window.DonorRegistry.getNextPassId() : "#PPA-KCC-BDC-001");
+      if (!record || !record.synced) {
+        const failHeading = currentLang === "ta"
+          ? "இணைய இணைப்புப் பிழை"
+          : (currentLang === "si" ? "සම්බන්ධතා දෝෂයකි" : "Connection Issue");
+        const failBody = currentLang === "ta"
+          ? "உங்கள் பதிவு இன்னும் சேமிக்கப்படவில்லை. உங்கள் இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்."
+          : (currentLang === "si" ? "ඔබගේ විස්තර තවමත් සුරැකී නොමැත. කරුණාකර අන්තර්ජාල සම්බන්ධතාව පරීක්ෂා කර නැවත උත්සාහ කරන්න." : "Your registration could not be saved yet. Please check your internet connection and tap Submit again.");
 
-      const msg = buildWhatsAppMessage(data, passId);
-      const waUrl = `https://wa.me/${COORDINATOR_PHONE}?text=${encodeURIComponent(msg)}`;
+        if (submitNotice) {
+          submitNotice.style.display = "block";
+          submitNotice.style.background = "#fef2f2";
+          submitNotice.style.border = "2px solid #ef4444";
+          submitNotice.style.padding = "16px";
+          submitNotice.style.textAlign = "center";
+          submitNotice.innerHTML = `
+            <strong style="color: #991b1b; display: block; margin-bottom: 4px;">⚠️ ${failHeading}</strong>
+            <span style="font-size: 0.88rem; color: #7f1d1d;">${failBody}</span>
+          `;
+          submitNotice.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        resetSubmitButton(submitBtn);
+        return;
+      }
 
-      // Render Grand Official Pass Confirmation Card in submitNotice
+      const passId = record.passId;
+
+      // Render Official Donor Pass Confirmation Card
       const headingText = currentLang === "ta"
         ? "பதிவு வெற்றிகரமானது!"
-        : (currentLang === "si" ? "ලියාපදිංචිය සාර්ථකයි!" : "Registration Successful!");
+        : (currentLang === "si" ? "ලියාපදිංචිය සාර්ථකයි!" : "Registration Confirmed!");
       const passLabel = currentLang === "ta" ? "அனுமதி அட்டை எண்" : (currentLang === "si" ? "නිල පාස් අංකය" : "Official Pass ID");
-      const subText = currentLang === "ta"
-        ? "ஒருங்கிணைப்பாளருக்கு WhatsApp மூலம் உறுதிப்படுத்த கீழே உள்ள பொத்தானை அழுத்தவும்:"
-        : (currentLang === "si" ? "සම්බන්ධීකාරක වෙත WhatsApp මගින් තහවුරු කිරීමට පහත බොත්තම ඔබන්න:" : "Click below to confirm your registration with the event coordinator:");
-      const btnText = currentLang === "ta"
-        ? "💬 WhatsApp மூலம் உறுதிசெய்க"
-        : (currentLang === "si" ? "💬 WhatsApp මගින් තහවුරු කරන්න" : "💬 Open WhatsApp to Confirm Pass");
+      const savedNote = currentLang === "ta"
+        ? "உங்கள் விபரங்கள் அதிகாரப்பூர்வ முகாம் பட்டியலில் நேரடியாக சேமிக்கப்பட்டுள்ளன. இந்த அட்டையை Screenshot எடுத்து வைக்கவும்."
+        : (currentLang === "si" ? "ඔබගේ විස්තර නිල ලියාපදිංචි ලේඛනයට සාර්ථකව ඇතුළත් කෙරුණි. මෙම පාස් කාඩ්පත Screenshot එකක් ලෙස තබාගන්න." : "Your registration is saved directly in the Official Camp Sheet. Please take a screenshot of this pass for check-in.");
+      const anotherText = currentLang === "ta"
+        ? "+ மற்றொருவரைப் பதிவு செய்ய"
+        : (currentLang === "si" ? "+ වෙනත් අයෙකු ලියාපදිංචි කරන්න" : "+ Register Another Donor");
 
       if (submitNotice) {
         submitNotice.style.display = "block";
         submitNotice.style.background = "#ecfdf5";
         submitNotice.style.border = "2px solid #10b981";
-        submitNotice.style.padding = "20px 18px";
+        submitNotice.style.padding = "22px 18px";
         submitNotice.style.textAlign = "center";
         submitNotice.innerHTML = `
           <div style="font-size: 2rem; margin-bottom: 6px;">🎉</div>
-          <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: #065f46; margin-bottom: 8px;">
+          <h3 style="font-family: var(--font-display); font-size: 1.28rem; font-weight: 800; color: #065f46; margin-bottom: 10px;">
             ${headingText}
           </h3>
-          <div style="display: inline-block; background: #8f0e1f; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-family: monospace; font-size: 1.1rem; font-weight: 800; letter-spacing: 0.05em; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(143,14,31,0.25);">
-            ${passLabel}: ${passId}
+          <div style="display: inline-block; background: #8f0e1f; color: #ffffff; padding: 7px 18px; border-radius: 20px; font-family: monospace; font-size: 1.08rem; font-weight: 800; letter-spacing: 0.05em; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(143,14,31,0.25);">
+            ${passLabel}: ${escapeHtml(passId)}
           </div>
-          <p style="font-size: 0.88rem; color: #065f46; margin-bottom: 16px; font-weight: 600; line-height: 1.4;">
-            ${subText}
+          <div style="background: #ffffff; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 14px; margin: 0 auto 14px; max-width: 380px; text-align: left; font-size: 0.85rem; color: #064e3b; line-height: 1.6;">
+            <div><strong>${currentLang === "ta" ? "பெயர்" : (currentLang === "si" ? "නම" : "Name")}:</strong> ${escapeHtml(data.name)}</div>
+            <div><strong>${currentLang === "ta" ? "இரத்த வகை" : (currentLang === "si" ? "රුධිර වර්ගය" : "Blood Group")}:</strong> ${escapeHtml(data.bloodGroup)}</div>
+            <div><strong>${currentLang === "ta" ? "நேரம்" : (currentLang === "si" ? "වේලාව" : "Time Slot")}:</strong> ${escapeHtml(data.slot)}</div>
+          </div>
+          <p style="font-size: 0.86rem; color: #065f46; margin-bottom: 14px; font-weight: 600; line-height: 1.45;">
+            ${savedNote}
           </p>
-          <a href="${waUrl}" id="btnWaDirect" class="btn btn-red btn-touch-lg" style="display: block; width: 100%; text-decoration: none; font-size: 1rem; padding: 14px 20px; background: #25d366; border-color: #25d366; box-shadow: 0 6px 18px rgba(37,211,102,0.35);">
-            <span>${btnText}</span>
-          </a>
-          <p style="font-size: 0.74rem; color: #047857; margin-top: 10px;">
-            📍 College Main Hall, Kalugamuwa Central College • 06 Dec 2026
+          <p style="font-size: 0.78rem; color: #047857; margin-bottom: 14px;">
+            📍 College Main Hall, Kalugamuwa Central College • Sunday, 06 Dec 2026
           </p>
+          <button type="button" id="btnRegisterAnother" class="btn btn-white" style="font-size: 0.85rem; padding: 8px 16px;">
+            ${anotherText}
+          </button>
         `;
+        const btnAnother = document.getElementById("btnRegisterAnother");
+        if (btnAnother) {
+          btnAnother.addEventListener("click", () => {
+            form.reset();
+            updateAge();
+            submitNotice.style.display = "none";
+            resetSubmitButton(submitBtn);
+            if (fullName) fullName.focus();
+          });
+        }
         submitNotice.scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
       if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = "1";
-        submitBtn.innerHTML = `<span>✓ ${currentLang === "ta" ? "பதிவு செய்யப்பட்டது" : (currentLang === "si" ? "ලියාපදිංචි කරන ලදී" : "Registered")} (${passId})</span>`;
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.9";
+        submitBtn.innerHTML = `<span>✓ ${currentLang === "ta" ? "பதிவு செய்யப்பட்டது" : (currentLang === "si" ? "ලියාපදිංචි කරන ලදී" : "Registered")} (${escapeHtml(passId)})</span>`;
       }
-
-      // Auto-trigger WhatsApp launch on mobile
-      setTimeout(() => {
-        window.location.href = waUrl;
-      }, 400);
     });
   }
 
