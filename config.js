@@ -10,7 +10,8 @@
   const STORAGE_KEY = "kcc_blood_donors_master";
   const CONFIG_KEY = "kcc_donor_cloud_config";
   const COUNTER_KEY = "kcc_donor_pass_seq";
-  const DEFAULT_PIN = "kcc2026";
+  const DEFAULT_PIN = "Kcc@PPA2026";
+  const ALT_PIN = "kcc2026";
 
   /**
    * GLOBAL GOOGLE APPS SCRIPT WEB APP URL

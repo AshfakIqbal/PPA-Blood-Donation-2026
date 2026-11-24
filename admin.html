@@ -805,7 +805,7 @@
         </button>
       </form>
 
-      <p class="auth-hint">🔒 Authorized access for PPA Event Coordinators only.<br>Default Passcode: <code>kcc2026</code></p>
+      <p class="auth-hint">🔒 Authorized access for PPA Event Coordinators only.<br>Passcode: <code>Kcc@PPA2026</code> or <code>kcc2026</code></p>
       <div style="margin-top: 18px;">
         <a href="index.html" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: underline;">← Back to Public Digital Invitation</a>
       </div>
@@ -1200,9 +1200,10 @@
         e.preventDefault();
         const config = window.DonorRegistry.getCloudConfig();
         const pin = pinInput.value.trim();
-        const correctPin = config.adminPin || window.DonorRegistry.DEFAULT_PIN;
+        const validPins = ["Kcc@PPA2026", "kcc@ppa2026", "kcc2026"];
+        if (config.adminPin) validPins.push(config.adminPin);
 
-        if (pin === correctPin) {
+        if (validPins.some(p => p.toLowerCase() === pin.toLowerCase())) {
           sessionStorage.setItem("kcc_admin_authed", "true");
           authError.style.display = "none";
           checkAuth();
@@ -1399,7 +1400,7 @@
                 method: "POST",
                 redirect: "follow",
                 headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({ action: "deleteDonor", passId: passId, pin: config.adminPin || "kcc2026" })
+                body: JSON.stringify({ action: "deleteDonor", passId: passId, pin: "kcc2026" })
               });
             } catch (e) {
               console.warn("Could not delete from cloud:", e);
@@ -1431,7 +1432,7 @@
           cloudStatusText.textContent = "Google Sheet Active";
 
           try {
-            const url = `${config.googleSheetUrl}?pin=${encodeURIComponent(config.adminPin || "kcc2026")}`;
+            const url = `${config.googleSheetUrl}?pin=kcc2026`;
             const res = await fetch(url, { redirect: "follow" });
             if (res.ok) {
               const result = await res.json();
@@ -1497,7 +1498,7 @@
                 method: "POST",
                 redirect: "follow",
                 headers: { "Content-Type": "text/plain" },
-                body: JSON.stringify({ action: "clearAll", pin: config.adminPin || "kcc2026" })
+                body: JSON.stringify({ action: "clearAll", pin: "kcc2026" })
               });
             } catch (e) {
               console.error("Cloud wipe error:", e);

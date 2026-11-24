@@ -26,6 +26,12 @@
  */
 
 const ADMIN_PIN = "kcc2026";
+const VALID_PINS = ["kcc2026", "Kcc@PPA2026", "kcc@ppa2026"];
+
+function isValidPin(pin) {
+  const p = String(pin || "").trim().toLowerCase();
+  return VALID_PINS.some(v => v.toLowerCase() === p);
+}
 const SHEET_NAME = "Donors";
 
 function setupSheet(sheet) {
@@ -88,7 +94,7 @@ function doPost(e) {
 
     // Handle Admin Action: Delete a donor by Pass ID
     if (data.action === "deleteDonor") {
-      if (data.pin !== ADMIN_PIN) {
+      if (!isValidPin(data.pin)) {
         return createJsonResponse({ status: "error", message: "Unauthorized PIN" }, e);
       }
       const passIdToDelete = String(data.passId || "").trim();
@@ -104,7 +110,7 @@ function doPost(e) {
 
     // Handle Admin Action: Clear all donors
     if (data.action === "clearAll") {
-      if (data.pin !== ADMIN_PIN) {
+      if (!isValidPin(data.pin)) {
         return createJsonResponse({ status: "error", message: "Unauthorized PIN" }, e);
       }
       const lastRow = sheet.getLastRow();
@@ -187,7 +193,7 @@ function doGet(e) {
     }
 
     const pin = (e && e.parameter && e.parameter.pin) || "";
-    if (pin !== ADMIN_PIN) {
+    if (!isValidPin(pin)) {
       return createJsonResponse({
         status: "error",
         message: "Unauthorized: Invalid PIN"
