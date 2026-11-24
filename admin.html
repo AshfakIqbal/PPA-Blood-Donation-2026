@@ -1436,15 +1436,8 @@
             if (res.ok) {
               const result = await res.json();
               if (result.status === "success" && Array.isArray(result.donors)) {
-                // Merge cloud donors with local donors (avoid duplicates by passId)
-                const cloudDonors = result.donors;
-                const map = new Map();
-                // Add local donors
-                allDonors.forEach(d => map.set(d.passId, d));
-                // Add or update cloud donors
-                cloudDonors.forEach(d => map.set(d.passId, { ...map.get(d.passId), ...d }));
-
-                allDonors = Array.from(map.values());
+                // Cloud Google Sheet is the authoritative source of truth
+                allDonors = result.donors;
                 window.DonorRegistry.saveAllDonors(allDonors);
 
                 if (showAlert) alert(`Synced successfully! Total donors: ${allDonors.length}`);

@@ -33,14 +33,15 @@
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === "object") {
-          cfg = { ...cfg, ...parsed };
+          if (parsed.adminPin) cfg.adminPin = parsed.adminPin;
+          if (parsed.targetDonors) cfg.targetDonors = parsed.targetDonors;
         }
       }
     } catch (e) {
       // ignore
     }
-    // Safety check: Never leave googleSheetUrl blank if global is configured
-    if ((!cfg.googleSheetUrl || !cfg.googleSheetUrl.startsWith("http")) && GLOBAL_GOOGLE_SHEET_URL && GLOBAL_GOOGLE_SHEET_URL.startsWith("http")) {
+    // GLOBAL_GOOGLE_SHEET_URL is always the master authoritative cloud endpoint
+    if (GLOBAL_GOOGLE_SHEET_URL && GLOBAL_GOOGLE_SHEET_URL.startsWith("http")) {
       cfg.googleSheetUrl = GLOBAL_GOOGLE_SHEET_URL;
     }
     return cfg;
