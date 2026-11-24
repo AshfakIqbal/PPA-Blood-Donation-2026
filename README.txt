@@ -49,16 +49,9 @@ LANGUAGE EDITIONS & STRUCTURE:
    - Digital Donor Passes are also generated in the respective language.
    - Direct Google Maps link (https://maps.app.goo.gl/GUvWcV5GCEfPuANm7) is included across all pages, passes, and calendar invitations.
 
-5. In-Built Data Collection & Protected Coordinator Portal:
-   - Every registration is automatically collected and recorded via Google Sheets Web App sync.
-   - Protected by AES-256-GCM encryption and coordinator passcode.
-   - Admin Features:
-     * Live KPI counters: Total Donors, Male/Female split, Blood Group breakdown (A+, B+, O+, AB+), and Time Slots.
-     * Instant search & filtering by donor name, phone, blood group, or slot.
-     * 1-tap Direct Call (📞) and 1-tap WhatsApp chat (💬) for each donor.
-     * 1-click Export to Microsoft Excel / CSV with UTF-8 BOM (preserves Sinhala & Tamil names).
-     * 1-click Print Master Attendance Roster for the reception desk on Dec 06.
-     * Manual Add Donor modal for walk-in or phone call donors.
+5. Private Google Sheets Data Collection (Write-Only Security):
+   - Every registration from the public form is automatically appended to the private Google Sheet (`KCC Blood Donation 2026`) via a write-only Google Apps Script collector (`google-apps-script.js`).
+   - Web admin panels have been completely removed from the public site; coordinators manage, search, filter, print, and export donor records directly inside Google Sheets (protected by Google Sign-In & 2FA).
 
 6. Google Sheets Cloud Webhook (google-apps-script.js):
    - For GitHub Pages static hosting, donor submissions can automatically land directly in your private Google Sheet in real-time.

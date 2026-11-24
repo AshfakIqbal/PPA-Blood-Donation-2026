@@ -1,93 +1,28 @@
 /**
  * ============================================================================
  * PPA KALUGAMUWA CENTRAL COLLEGE - ANNUAL BLOOD DONATION CAMP 2026
- * Google Apps Script Webhook for GitHub Pages Data Collection
+ * Write-Only Google Apps Script Collector for Public Registration Form
  * Inkspire Prints & Dimension
  * ============================================================================
- * 
- * 2-MINUTE SETUP INSTRUCTIONS:
- * 1. Open Google Sheets (https://sheets.new) and name it "KCC Blood Donation 2026"
- * 2. In Google Sheets, click "Extensions" > "Apps Script" from the top menu
- * 3. Delete any template code in the editor, and PASTE this entire script
- * 4. Click Save icon (Ctrl + S)
- * 5. Click the blue "Deploy" button (top-right) > "New deployment"
- * 6. Under "Select type" (gear icon), choose "Web app"
- * 7. Fill in the fields:
- *    - Description: "KCC Donor Collection Webhook v2"
+ *
+ * SECURITY MODEL (OPTION A — MAXIMUM SECURITY):
+ * - This Web App is STRICTLY WRITE-ONLY (append new donor registrations only).
+ * - Public GET requests NEVER return donor data.
+ * - Delete / Wipe / Admin actions are completely disabled on the web endpoint.
+ * - Coordinators view, search, filter, print, and export donor records directly
+ *   inside the private "KCC Blood Donation 2026" Google Sheet (protected by
+ *   Google Sign-In + 2-Factor Authentication).
+ *
+ * SETUP / UPDATE INSTRUCTIONS:
+ * 1. Open Google Sheet "KCC Blood Donation 2026" -> Extensions > Apps Script
+ * 2. Paste this entire script and Save (Ctrl + S)
+ * 3. Click Deploy > Manage deployments > Edit (pencil icon) >
+ *    Version: "New version" -> Deploy (keeps the existing Web App URL active!)
  *    - Execute as: "Me"
- *    - Who has access: "Anyone" (CRITICAL: Allows GitHub Pages to submit donors)
- * 8. Click "Deploy", then "Authorize access" (choose your Google account, click "Advanced" > "Go to KCC Blood Donation (unsafe)")
- * 9. Copy the generated "Web App URL" (starts with https://script.google.com/macros/s/...)
- * 10. In Apps Script: Project Settings (gear icon) > Script Properties > Add property:
- *     - Property: ADMIN_PIN
- *     - Value: Your private secret passcode (NEVER commit the real value to GitHub)
- * 11. Update GLOBAL_GOOGLE_SHEET_URL in config.js
- * 
- * Done! Every donor registered on your website will automatically append to your Google Sheet
- * with guaranteed non-duplicating sequential Pass IDs (#PPA-KCC-BDC-001, 002, 003...)!
+ *    - Who has access: "Anyone" (Required for public form POST only)
  * ============================================================================
  */
 
-// Fallback only if Script Property "ADMIN_PIN" is not set. Replace locally in Apps Script, never commit real secrets.
-const FALLBACK_PIN = "SET_PRIVATE_PIN_IN_SCRIPT_PROPERTIES";
-
-function getConfiguredPin() {
-  try {
-    const prop = PropertiesService.getScriptProperties().getProperty("ADMIN_PIN");
-    if (prop && prop.trim()) return prop.trim();
-  } catch (e) {
-    // ignore
-  }
-  return FALLBACK_PIN;
-}
-
-function isRateLimited() {
-  try {
-    const cache = CacheService.getScriptCache();
-    const lockUntil = parseInt(cache.get("pin_lock_until") || "0", 10);
-    return lockUntil > Date.now();
-  } catch (e) {
-    return false;
-  }
-}
-
-function recordFailedPinAttempt() {
-  try {
-    const cache = CacheService.getScriptCache();
-    const attempts = parseInt(cache.get("pin_fail_count") || "0", 10) + 1;
-    cache.put("pin_fail_count", String(attempts), 900); // 15 min window
-    if (attempts >= 5) {
-      // Lock admin read/delete endpoints for 15 minutes after 5 failed attempts
-      cache.put("pin_lock_until", String(Date.now() + 15 * 60 * 1000), 900);
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-function clearFailedPinAttempts() {
-  try {
-    const cache = CacheService.getScriptCache();
-    cache.removeAll(["pin_fail_count", "pin_lock_until"]);
-  } catch (e) {
-    // ignore
-  }
-}
-
-function isValidPin(pin) {
-  if (isRateLimited()) return false;
-  const expected = getConfiguredPin();
-  if (!expected || expected === "SET_PRIVATE_PIN_IN_SCRIPT_PROPERTIES") {
-    return false;
-  }
-  const provided = String(pin || "").trim();
-  if (provided === expected) {
-    clearFailedPinAttempts();
-    return true;
-  }
-  recordFailedPinAttempt();
-  return false;
-}
 const SHEET_NAME = "Donors";
 
 function setupSheet(sheet) {
@@ -119,24 +54,31 @@ function setupSheet(sheet) {
 }
 
 /**
- * Handle POST request from GitHub Pages registration form or Admin Portal
+ * Prevent spreadsheet formula injection (=, +, -, @) and enforce sane lengths
+ */
+function sanitizeCell(value, maxLen) {
+  let s = String(value == null ? "" : value).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim();
+  if (maxLen && s.length > maxLen) {
+    s = s.substring(0, maxLen);
+  }
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = "'" + s;
+  }
+  return s;
+}
+
+/**
+ * Handle POST request from Public Registration Form (STRICTLY APPEND-ONLY)
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
-    lock.waitLock(30000); // Wait up to 30s to prevent concurrent duplicate Pass IDs
+    lock.waitLock(30000); // Prevent concurrent duplicate Pass IDs
   } catch (err) {
-    return createJsonResponse({ status: "error", message: "Server busy, please retry in a moment" }, e);
+    return createJsonResponse({ status: "error", message: "Server busy, please retry in a moment" });
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      sheet = ss.insertSheet(SHEET_NAME);
-    }
-    setupSheet(sheet);
-
     let data = {};
     if (e && e.postData && e.postData.contents) {
       try {
@@ -148,38 +90,35 @@ function doPost(e) {
       data = e.parameter;
     }
 
-    // Handle Admin Action: Delete a donor by Pass ID
-    if (data.action === "deleteDonor") {
-      if (!isValidPin(data.pin)) {
-        return createJsonResponse({ status: "error", message: "Unauthorized PIN" }, e);
-      }
-      const passIdToDelete = String(data.passId || "").trim();
-      const rows = sheet.getDataRange().getValues();
-      for (let i = 1; i < rows.length; i++) {
-        if (String(rows[i][1]).trim() === passIdToDelete) {
-          sheet.deleteRow(i + 1);
-          return createJsonResponse({ status: "success", message: "Donor deleted", passId: passIdToDelete }, e);
-        }
-      }
-      return createJsonResponse({ status: "error", message: "Donor not found" }, e);
+    // Block all administrative or destructive actions on the public endpoint
+    if (data && data.action && String(data.action).trim() !== "" && String(data.action).trim() !== "register") {
+      return createJsonResponse({
+        status: "error",
+        message: "Administrative actions are disabled on the public endpoint. Manage records directly inside Google Sheets."
+      });
     }
 
-    // Handle Admin Action: Clear all donors
-    if (data.action === "clearAll") {
-      if (!isValidPin(data.pin)) {
-        return createJsonResponse({ status: "error", message: "Unauthorized PIN" }, e);
-      }
-      const lastRow = sheet.getLastRow();
-      if (lastRow > 1) {
-        sheet.deleteRows(2, lastRow - 1);
-      }
-      return createJsonResponse({ status: "success", message: "All records cleared" }, e);
+    const name = sanitizeCell(data.name, 120);
+    const contactRaw = String(data.contact || "").replace(/[\r\n]/g, "").trim().substring(0, 40);
+
+    if (!name || !contactRaw) {
+      return createJsonResponse({
+        status: "error",
+        message: "Missing required donor fields (name and contact)."
+      });
     }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_NAME);
+    }
+    setupSheet(sheet);
 
     const now = new Date();
     const lkTime = Utilities.formatDate(now, "Asia/Colombo", "yyyy-MM-dd HH:mm:ss");
 
-    // SCAN EXISTING SHEET TO FIND TRUE MAXIMUM PASS ID NUMBER (NEVER DUPLICATE)
+    // Scan existing rows to guarantee unique sequential Pass IDs
     let maxNum = 0;
     const allData = sheet.getDataRange().getValues();
     for (let i = 1; i < allData.length; i++) {
@@ -196,19 +135,21 @@ function doPost(e) {
     const nextNum = maxNum + 1;
     const assignedPassId = "#PPA-KCC-BDC-" + Utilities.formatString("%03d", nextNum);
 
+    const whatsappRaw = String(data.whatsapp || contactRaw).replace(/[\r\n]/g, "").trim().substring(0, 40);
+
     sheet.appendRow([
       lkTime,
       assignedPassId,
-      data.name || "N/A",
-      data.gender || "N/A",
-      data.age || "N/A",
-      data.dob || "N/A",
-      "'" + (data.contact || "N/A"), // prefix with ' to preserve leading zero
-      "'" + (data.whatsapp || "N/A"),
-      data.address || "N/A",
-      data.bloodGroup || "Not Sure",
-      data.slot || "Morning",
-      data.lang || "en",
+      name,
+      sanitizeCell(data.gender || "N/A", 40),
+      sanitizeCell(data.age || "N/A", 10),
+      sanitizeCell(data.dob || "N/A", 20),
+      "'" + contactRaw,   // Leading quote preserves leading zero & neutralizes formulas
+      "'" + whatsappRaw,  // Leading quote preserves leading zero & neutralizes formulas
+      sanitizeCell(data.address || "N/A", 200),
+      sanitizeCell(data.bloodGroup || "Not Sure", 60),
+      sanitizeCell(data.slot || "Morning", 80),
+      sanitizeCell(data.lang || "en", 10),
       "Pending Verification"
     ]);
 
@@ -217,123 +158,34 @@ function doPost(e) {
       message: "Donor registration recorded in Google Sheet",
       passId: assignedPassId,
       seq: nextNum
-    }, e);
+    });
 
   } catch (error) {
     return createJsonResponse({
       status: "error",
-      message: error.toString()
-    }, e);
+      message: "Registration processing error."
+    });
   } finally {
     try {
       lock.releaseLock();
-    } catch (e) {
+    } catch (err) {
       // ignore
     }
   }
 }
 
 /**
- * Handle GET request from Coordinator Portal to fetch registered donors list or perform actions
+ * Handle GET request — STRICTLY READ-PROTECTED (never returns donor records)
  */
-function doGet(e) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      return createJsonResponse({
-        status: "success",
-        total: 0,
-        donors: []
-      }, e);
-    }
-
-    const pin = (e && e.parameter && e.parameter.pin) || "";
-    if (!isValidPin(pin)) {
-      return createJsonResponse({
-        status: "error",
-        message: "Unauthorized: Invalid PIN"
-      }, e);
-    }
-
-    const action = (e && e.parameter && e.parameter.action) || "getDonors";
-
-    // Handle Delete via GET
-    if (action === "delete") {
-      const passIdToDelete = String(e.parameter.passId || "").trim();
-      const rows = sheet.getDataRange().getValues();
-      for (let i = 1; i < rows.length; i++) {
-        if (String(rows[i][1]).trim() === passIdToDelete) {
-          sheet.deleteRow(i + 1);
-          return createJsonResponse({ status: "success", message: "Donor deleted", passId: passIdToDelete }, e);
-        }
-      }
-      return createJsonResponse({ status: "error", message: "Donor not found" }, e);
-    }
-
-    // Handle Clear All via GET
-    if (action === "clearAll") {
-      const lastRow = sheet.getLastRow();
-      if (lastRow > 1) {
-        sheet.deleteRows(2, lastRow - 1);
-      }
-      return createJsonResponse({ status: "success", message: "All records cleared" }, e);
-    }
-
-    // Default: Get All Donors
-    const rows = sheet.getDataRange().getValues();
-    if (rows.length <= 1) {
-      return createJsonResponse({
-        status: "success",
-        total: 0,
-        donors: []
-      }, e);
-    }
-
-    const donors = [];
-    for (let i = rows.length - 1; i >= 1; i--) { // Reverse order so newest is first
-      const r = rows[i];
-      donors.push({
-        registeredAt: r[0],
-        passId: r[1],
-        name: r[2],
-        gender: r[3],
-        age: r[4],
-        dob: r[5],
-        contact: String(r[6]).replace(/^'/, ''),
-        whatsapp: String(r[7]).replace(/^'/, ''),
-        address: r[8],
-        bloodGroup: r[9],
-        slot: r[10],
-        lang: r[11],
-        status: r[12]
-      });
-    }
-
-    return createJsonResponse({
-      status: "success",
-      total: donors.length,
-      donors: donors
-    }, e);
-
-  } catch (error) {
-    return createJsonResponse({
-      status: "error",
-      message: error.toString()
-    }, e);
-  }
+function doGet() {
+  return createJsonResponse({
+    status: "ok",
+    mode: "write-only",
+    message: "Public registration collector active. Access to donor records is restricted to authorized Google Sheet owners."
+  });
 }
 
-/**
- * Helper to return JSON or JSONP if callback parameter is present
- */
-function createJsonResponse(data, e) {
-  const jsonStr = JSON.stringify(data);
-  const callback = (e && e.parameter && e.parameter.callback) || "";
-  if (callback) {
-    return ContentService.createTextOutput(callback + "(" + jsonStr + ");")
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  }
-  return ContentService.createTextOutput(jsonStr)
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }

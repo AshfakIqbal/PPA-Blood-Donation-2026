@@ -1,9 +1,7 @@
 # PPA KCC Blood Donation Camp 2026
-# Restrict search engine crawlers from non-public paths and config scripts
+# Block indexing of redirect stubs and backend scripts
 
 User-agent: *
 Disallow: /admin.html
 Disallow: /config.js
 Disallow: /google-apps-script.js
-Disallow: /*admin*
-Disallow: /*dash*
